@@ -1,0 +1,63 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="현재 도메인 연관관계 (main)" id="erd-current-main">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Entities (name only) ===== -->
+        <mxCell id="seller" value="셀러&#10;(Seller)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="775" y="55" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="유저&#10;(User)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="55" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="payment" value="결제&#10;(Payment)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="35" y="225" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="order" value="주문&#10;(Order)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="355" y="225" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cart" value="장바구니&#10;(Cart)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="315" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="orderitem" value="주문 아이템&#10;(OrderItem)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="355" y="515" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="product" value="상품&#10;(Product)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="775" y="515" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cartitem" value="카트 아이템&#10;(CartItem)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=15;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="515" width="230" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Edges ===== -->
+        <mxCell id="e_pay_order" value="@OneToOne" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERone;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="payment" target="order">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_order_item" value="@OneToMany" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="order" target="orderitem">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_item_product" value="@ManyToOne" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERmany;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="orderitem" target="product">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_product_seller" value="@ManyToOne ↔ @OneToMany" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERmany;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="product" target="seller">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_seller_user" value="@OneToOne" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERone;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="seller" target="user">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_cart" value="@OneToOne" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERone;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="user" target="cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_cart_item" value="@OneToMany" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" edge="1" parent="1" source="cart" target="cartitem">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_cartitem_product" value="@ManyToOne" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=13;startArrow=ERmany;startFill=0;endArrow=ERone;endFill=0;" edge="1" parent="1" source="cartitem" target="product">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

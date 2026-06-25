@@ -1,0 +1,130 @@
+<svg viewBox="0 0 1700 1200" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">
+  <style>
+    .box { fill: #ffffff; stroke: #000000; stroke-width: 2; }
+    .ttl { font-size: 28px; text-anchor: middle; }
+    .lbl { font-size: 26px; text-anchor: middle; }
+    .ln  { stroke: #000000; stroke-width: 2; fill: none; }
+  </style>
+
+  <!-- ===== Boxes ===== -->
+  <!-- Review -->
+  <rect class="box" x="490" y="40" width="230" height="110"/>
+  <text class="ttl" x="605" y="85">리뷰</text>
+  <text class="ttl" x="605" y="120">(Review)</text>
+
+  <!-- UserAddress -->
+  <rect class="box" x="950" y="40" width="230" height="110"/>
+  <text class="ttl" x="1065" y="85">배송지</text>
+  <text class="ttl" x="1065" y="120">(UserAddress)</text>
+
+  <!-- Payment -->
+  <rect class="box" x="15" y="380" width="230" height="110"/>
+  <text class="ttl" x="130" y="425">결제</text>
+  <text class="ttl" x="130" y="460">(Payment)</text>
+
+  <!-- Order -->
+  <rect class="box" x="490" y="380" width="230" height="110"/>
+  <text class="ttl" x="605" y="425">주문</text>
+  <text class="ttl" x="605" y="460">(Order)</text>
+
+  <!-- User -->
+  <rect class="box" x="950" y="380" width="230" height="110"/>
+  <text class="ttl" x="1065" y="425">유저</text>
+  <text class="ttl" x="1065" y="460">(User)</text>
+
+  <!-- Store -->
+  <rect class="box" x="1420" y="380" width="230" height="110"/>
+  <text class="ttl" x="1535" y="425">가게</text>
+  <text class="ttl" x="1535" y="460">(Store)</text>
+
+  <!-- OrderItem -->
+  <rect class="box" x="490" y="700" width="230" height="110"/>
+  <text class="ttl" x="605" y="745">주문 아이템</text>
+  <text class="ttl" x="605" y="780">(OrderItem)</text>
+
+  <!-- Product -->
+  <rect class="box" x="975" y="700" width="230" height="110"/>
+  <text class="ttl" x="1090" y="745">상품</text>
+  <text class="ttl" x="1090" y="780">(Product)</text>
+
+  <!-- StoreAddress -->
+  <rect class="box" x="1420" y="700" width="230" height="110"/>
+  <text class="ttl" x="1535" y="745">가게 주소</text>
+  <text class="ttl" x="1535" y="780">(StoreAddress)</text>
+
+  <!-- Cart -->
+  <rect class="box" x="490" y="1040" width="230" height="110"/>
+  <text class="ttl" x="605" y="1085">카트</text>
+  <text class="ttl" x="605" y="1120">(Cart)</text>
+
+  <!-- CartItem -->
+  <rect class="box" x="950" y="1040" width="230" height="110"/>
+  <text class="ttl" x="1065" y="1085">카트 아이템</text>
+  <text class="ttl" x="1065" y="1120">(CartItem)</text>
+
+  <!-- ===== Connections ===== -->
+  <!-- Payment - Order : @OneToOne -->
+  <line class="ln" x1="245" y1="435" x2="490" y2="435"/>
+  <line class="ln" x1="285" y1="418" x2="285" y2="452"/>
+  <line class="ln" x1="450" y1="418" x2="450" y2="452"/>
+  <text class="lbl" x="367" y="412">@OneToOne</text>
+
+  <!-- Order - User : @ManyToOne / @OneToMany -->
+  <line class="ln" x1="720" y1="435" x2="950" y2="435"/>
+  <circle cx="745" cy="435" r="9" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <line class="ln" x1="915" y1="418" x2="915" y2="452"/>
+  <!-- right arrow (ManyToOne direction) -->
+  <line class="ln" x1="800" y1="368" x2="870" y2="368"/>
+  <path class="ln" d="M 862 360 L 872 368 L 862 376"/>
+  <text class="lbl" x="835" y="412">@ManyToOne</text>
+  <!-- left arrow (OneToMany direction) -->
+  <line class="ln" x1="870" y1="500" x2="800" y2="500"/>
+  <path class="ln" d="M 808 492 L 798 500 L 808 508"/>
+  <text class="lbl" x="835" y="492">@OneToMany</text>
+
+  <!-- User - Store : @OneToOne -->
+  <line class="ln" x1="1180" y1="435" x2="1420" y2="435"/>
+  <line class="ln" x1="1215" y1="418" x2="1215" y2="452"/>
+  <line class="ln" x1="1385" y1="418" x2="1385" y2="452"/>
+  <text class="lbl" x="1300" y="412">@OneToOne</text>
+
+  <!-- Review - Order -->
+  <line class="ln" x1="605" y1="150" x2="605" y2="380"/>
+  <line class="ln" x1="588" y1="345" x2="622" y2="345"/>
+
+  <!-- UserAddress - User -->
+  <line class="ln" x1="1065" y1="150" x2="1065" y2="380"/>
+  <line class="ln" x1="1048" y1="345" x2="1082" y2="345"/>
+  <path class="ln" d="M 1052 185 L 1065 200 L 1078 185"/>
+
+  <!-- Order - OrderItem -->
+  <line class="ln" x1="605" y1="490" x2="605" y2="700"/>
+  <line class="ln" x1="588" y1="665" x2="622" y2="665"/>
+  <path class="ln" d="M 592 535 L 605 520 L 618 535"/>
+
+  <!-- OrderItem - Product -->
+  <line class="ln" x1="720" y1="755" x2="975" y2="755"/>
+  <line class="ln" x1="755" y1="738" x2="755" y2="772"/>
+  <line class="ln" x1="940" y1="738" x2="940" y2="772"/>
+  <path class="ln" d="M 760 743 L 745 755 L 760 767"/>
+
+  <!-- Product - Store (stepped) -->
+  <line class="ln" x1="1205" y1="755" x2="1480" y2="755"/>
+  <line class="ln" x1="1480" y1="755" x2="1480" y2="490"/>
+  <path class="ln" d="M 1213 748 L 1228 755 L 1213 762"/>
+  <line class="ln" x1="1463" y1="525" x2="1497" y2="525"/>
+
+  <!-- Store - StoreAddress -->
+  <line class="ln" x1="1560" y1="490" x2="1560" y2="700"/>
+  <line class="ln" x1="1543" y1="665" x2="1577" y2="665"/>
+
+  <!-- Product - CartItem -->
+  <line class="ln" x1="1065" y1="810" x2="1065" y2="1040"/>
+  <line class="ln" x1="1048" y1="1005" x2="1082" y2="1005"/>
+  <path class="ln" d="M 1052 1035 L 1065 1020 L 1078 1035"/>
+
+  <!-- Cart - CartItem -->
+  <line class="ln" x1="720" y1="1095" x2="950" y2="1095"/>
+  <line class="ln" x1="755" y1="1078" x2="755" y2="1112"/>
+  <path class="ln" d="M 915 1078 L 935 1095 L 915 1112"/>
+</svg>
