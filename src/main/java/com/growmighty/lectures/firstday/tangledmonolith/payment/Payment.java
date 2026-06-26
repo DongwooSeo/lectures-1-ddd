@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
@@ -20,7 +19,6 @@ public class Payment {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentStatus status;
@@ -30,5 +28,9 @@ public class Payment {
         payment.amount = amount;
         payment.status = PaymentStatus.READY;
         return payment;
+    }
+
+    public void changeStatus(PaymentStatus status) {
+        this.status = status;
     }
 }

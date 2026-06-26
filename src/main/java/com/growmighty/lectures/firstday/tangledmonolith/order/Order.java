@@ -1,12 +1,10 @@
 package com.growmighty.lectures.firstday.tangledmonolith.order;
 
 import com.growmighty.lectures.firstday.tangledmonolith.payment.Payment;
-import com.growmighty.lectures.firstday.tangledmonolith.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -27,34 +25,35 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
     private List<OrderItem> items = new ArrayList<>();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id")
-    private Payment payment;
+    @Column
+    private Long paymentId;
 
-    @Setter
-    @Column(nullable = false)
-    private BigDecimal totalAmount;
+    @Embedded
+    @AttributeOverride(
+            name = "value",
+            column = @Column(name = "total_amount", nullable = false))
+    private Money totalAmount;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;
 
-    public static Order create(Long userId, List<OrderItem> items) {
-        Order order = new Order();
-        order.userId = userId;
-        order.status = OrderStatus.CREATED;
-        order.totalAmount = BigDecimal.ZERO;
-
-        for (OrderItem item : items) {
-            order.addOrderItem(item);
-        }
-
-        return order;
+    private Order(Long userId, List<OrderItem> items) {
+        validateItems(items);
+        items.forEach(this::addOrderItem);
+        this.userId = userId;
+        this.status = OrderStatus.CREATED;
+        this.totalAmount = calculateTotalAmount(items);
     }
 
-    public void assignPayment(Payment payment) {
-        this.payment = payment;
+    public static Order create(Long userId, List<OrderItem> items) {
+        return new Order(userId, items);
+    }
+
+    private void validateItems(List<OrderItem> items) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalStateException("주문할 상품이 없습니다.");
+        }
     }
 
     private void addOrderItem(OrderItem item) {
@@ -64,4 +63,36 @@ public class Order {
             item.assignOrder(this);
         }
     }
+
+    private Money calculateTotalAmount(List<OrderItem> items) {
+        return Money.from(items.stream()
+                .map(e -> e.getPrice().getValue().multiply(BigDecimal.valueOf(e.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+    }
+
+    public void completePayment(Long paymentId) {
+        this.status = OrderStatus.PAID;
+        this.paymentId = paymentId;
+    }
+
+    public void changeItemPrice(Long orderItemId, BigDecimal newPrice) {
+        OrderItem target = items.stream()
+                .filter(e -> e.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("주문에 없는 항목입니다."));
+
+        target.changePrice(newPrice);
+        this.totalAmount = calculateTotalAmount(items);
+    }
+
+    public void changeItemQuantity(Long orderItemId, int newQuantity) {
+        OrderItem target = items.stream()
+                .filter(e -> e.getId().equals(orderItemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("주문에 없는 항목입니다."));
+
+        target.changeQuantity(newQuantity);
+        this.totalAmount = calculateTotalAmount(items);
+    }
+
 }

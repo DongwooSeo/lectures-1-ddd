@@ -1,6 +1,5 @@
 package com.growmighty.lectures.firstday.tangledmonolith.product;
 
-import com.growmighty.lectures.firstday.tangledmonolith.seller.Seller;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -42,5 +41,13 @@ public class Product {
         product.stockQuantity = stockQuantity;
         product.description = description;
         return product;
+    }
+
+    public void decreaseStock(int quantity) {
+        if (this.stockQuantity < quantity) {
+            throw new IllegalStateException("재고가 부족합니다. product=" + this.name);
+        }
+
+        this.stockQuantity = (this.stockQuantity - quantity);
     }
 }
