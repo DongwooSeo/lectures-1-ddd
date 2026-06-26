@@ -1,7 +1,6 @@
 package com.growmighty.lectures.firstday.tangledmonolith.order;
 
 import com.growmighty.lectures.firstday.tangledmonolith.payment.Payment;
-import com.growmighty.lectures.firstday.tangledmonolith.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -27,10 +26,11 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
     private List<OrderItem> items = new ArrayList<>();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id")
-    private Payment payment;
+    @Column
+    private Long paymentId;
 
+    // 총액. setter 가 public 이라 order.setTotalAmount(0) 같은 것도 못 막는다.
+    // "총액 = 단가*수량 합계" 라는 규칙을 지켜줄 데가 지금은 없음.
     @Setter
     @Column(nullable = false)
     private BigDecimal totalAmount;
@@ -40,6 +40,9 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
+    // 그냥 받은 대로 만드는 팩토리.
+    // 원래 주문이면 지켜야 할 게 있는데(항목 없이는 주문 X, 항목 최대 10개 등) 여기엔 아무 검증이 없다.
+    // 총액 계산도 여기서 안 하고 OrderService 가 setter 로 넣어주는 구조.
     public static Order create(Long userId, List<OrderItem> items) {
         Order order = new Order();
         order.userId = userId;
@@ -53,8 +56,8 @@ public class Order {
         return order;
     }
 
-    public void assignPayment(Payment payment) {
-        this.payment = payment;
+    public void assignPayment(Long paymentId) {
+        this.paymentId = paymentId;
     }
 
     private void addOrderItem(OrderItem item) {
