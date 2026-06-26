@@ -21,17 +21,15 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @Column(nullable = false)
+    private Long userId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.PERSIST)
     private List<OrderItem> items = new ArrayList<>();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id")
-    private Payment payment;
-    
+    @Column
+    private Long paymentId;
+
     @Setter
     @Column(nullable = false)
     private BigDecimal totalAmount;
@@ -41,9 +39,9 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
-    public static Order create(User user, List<OrderItem> items) {
+    public static Order create(Long userId, List<OrderItem> items) {
         Order order = new Order();
-        order.user = user;
+        order.userId = userId;
         order.status = OrderStatus.CREATED;
         order.totalAmount = BigDecimal.ZERO;
 
@@ -54,8 +52,8 @@ public class Order {
         return order;
     }
 
-    public void assignPayment(Payment payment) {
-        this.payment = payment;
+    public void assignPayment(Long paymentId) {
+        this.paymentId = paymentId;
     }
 
     private void addOrderItem(OrderItem item) {
