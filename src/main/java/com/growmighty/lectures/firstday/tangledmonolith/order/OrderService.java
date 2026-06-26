@@ -47,15 +47,15 @@ public class OrderService {
                 throw new IllegalStateException("재고가 부족합니다. product=" + product.getName());
             }
             product.setStockQuantity(product.getStockQuantity() - quantity);
-
-            OrderItem orderItem = OrderItem.create(product, quantity);
+            
+            OrderItem orderItem = OrderItem.create(product.getName(), product.getPrice(), product.getId(), quantity);
             orderItems.add(orderItem);
 
             BigDecimal lineAmount = product.getPrice().multiply(BigDecimal.valueOf(quantity));
             totalAmount = totalAmount.add(lineAmount);
         }
 
-        Order order = Order.create(user, orderItems);
+        Order order = Order.create(user.getId(), orderItems);
         order.setTotalAmount(totalAmount);
 
         Payment payment = Payment.ready(totalAmount);

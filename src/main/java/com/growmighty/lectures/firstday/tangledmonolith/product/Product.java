@@ -18,9 +18,8 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "seller_id")
-    private Seller seller;
+    @Column(nullable = false)
+    private Long sellerId;
 
     @Column(nullable = false)
     private String name;
@@ -35,9 +34,9 @@ public class Product {
     @Lob
     private String description;
 
-    public static Product create(Seller seller, String name, BigDecimal price, Integer stockQuantity, String description) {
+    public static Product create(Long sellerId, String name, BigDecimal price, Integer stockQuantity, String description) {
         Product product = new Product();
-        product.seller = seller;
+        product.sellerId = sellerId;
         product.name = name;
         product.price = price;
         product.stockQuantity = stockQuantity;
