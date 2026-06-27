@@ -1,7 +1,6 @@
 package com.growmighty.lectures.firstday.tangledmonolith.cart;
 
 
-import com.growmighty.lectures.firstday.tangledmonolith.product.Product;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
