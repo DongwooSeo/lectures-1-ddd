@@ -1,6 +1,5 @@
 package com.growmighty.lectures.firstday.tangledmonolith.order;
 
-import com.growmighty.lectures.firstday.tangledmonolith.payment.Payment;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
