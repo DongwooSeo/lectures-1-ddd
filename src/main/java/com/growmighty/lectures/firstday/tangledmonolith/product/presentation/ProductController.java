@@ -29,4 +29,16 @@ public class ProductController {
     public ApiResponse<ProductResponse> changePrice(@PathVariable Long productId, @RequestParam BigDecimal price) {
         return ApiResponse.ok(ProductResponse.from(productService.changePrice(productId, price)));
     }
+
+    @PostMapping("/{productId}/decrease-stock")
+    public ApiResponse<Void> decreaseStock(@PathVariable Long productId, @RequestParam int quantity) {
+        productService.decreaseStock(productId, quantity);
+        return ApiResponse.ok();
+    }
+
+    @PostMapping("/{productId}/restore-stock")
+    public ApiResponse<Void> restoreStock(@PathVariable Long productId, @RequestParam int quantity) {
+        productService.restoreStock(productId, quantity);
+        return ApiResponse.ok();
+    }
 }
