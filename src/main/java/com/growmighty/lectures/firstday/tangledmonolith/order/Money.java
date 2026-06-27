@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 @Embeddable
@@ -25,5 +26,32 @@ public class Money {
             throw new IllegalArgumentException("금액은 0원 이상이어야 합니다. 입력값: " + value);
 
         return new Money(value);
+    }
+
+    public static Money zero() {
+        return new Money(BigDecimal.ZERO);
+    }
+
+    public Money plus(Money other) {
+        return new Money(this.value.add(other.value));
+    }
+
+    public Money minus(Money other) {
+        return Money.from(this.value.subtract(other.value));
+    }
+
+    public Money times(int quantity) {
+        return new Money(this.value.multiply(BigDecimal.valueOf(quantity)));
+    }
+
+    public Money percentage(int percent) {
+        BigDecimal amount = this.value
+                .multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        return new Money(amount);
+    }
+
+    public boolean isSameAmount(Money other) {
+        return this.value.compareTo(other.value) == 0;
     }
 }

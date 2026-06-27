@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
@@ -26,7 +25,6 @@ public class Product {
     @Column(nullable = false)
     private BigDecimal price;
 
-    @Setter
     @Column(nullable = false)
     private Integer stockQuantity;
 

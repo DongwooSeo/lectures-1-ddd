@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
@@ -28,12 +27,9 @@ public class OrderItem {
     @AttributeOverride(name="value", column = @Column(name="price", nullable = false))
     private Money price;
 
-    // Product 는 직접 참조 안 하고 id 만 보관 (step2 에서 연관관계 끊음)
     @Column(nullable = false)
     private Long productId;
 
-    // 수량도 setter 열어둠. setQuantity 로 바꿔도 Order.totalAmount 는 안 따라온다.
-    @Setter
     @Column(nullable = false)
     private Integer quantity;
 

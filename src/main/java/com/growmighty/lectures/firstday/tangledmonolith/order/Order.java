@@ -65,9 +65,9 @@ public class Order {
     }
 
     private Money calculateTotalAmount(List<OrderItem> items) {
-        return Money.from(items.stream()
-                .map(e -> e.getPrice().getValue().multiply(BigDecimal.valueOf(e.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        return items.stream()
+                .map(e -> e.getPrice().times(e.getQuantity()))
+                .reduce(Money.zero(), Money::plus);
     }
 
     public void completePayment(Long paymentId) {
