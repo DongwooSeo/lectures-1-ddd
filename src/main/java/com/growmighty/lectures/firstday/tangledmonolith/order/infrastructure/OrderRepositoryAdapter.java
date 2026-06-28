@@ -3,6 +3,7 @@ package com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure;
 import com.growmighty.lectures.firstday.tangledmonolith.order.domain.Order;
 import com.growmighty.lectures.firstday.tangledmonolith.order.domain.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,5 +27,15 @@ public class OrderRepositoryAdapter implements OrderRepository {
     @Override
     public List<Order> findAll() {
         return jpaRepository.findAll();
+    }
+
+    @Override
+    public List<Order> findPage(int page, int size) {
+        return jpaRepository.findAll(PageRequest.of(page, size)).getContent();
+    }
+
+    @Override
+    public long count() {
+        return jpaRepository.count();
     }
 }
