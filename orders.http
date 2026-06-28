@@ -16,7 +16,12 @@ Content-Type: application/json
 }
 
 ### 장바구니 기반 주문 (시드 장바구니 → 주문 전환, 주문 후 장바구니 비워짐)
-POST http://localhost:8080/orders/from-cart?userId=1
+POST http://localhost:8080/orders/from-cart
+Content-Type: application/json
+
+{
+  "userId": 1
+}
 
 ### 주문 취소 (재고 복원 + 결제 환불 + 상태 전이)
 POST http://localhost:8080/orders/1/cancel
@@ -25,10 +30,20 @@ POST http://localhost:8080/orders/1/cancel
 GET http://localhost:8080/orders/1/inspect
 
 ### 주문 항목 금액 변경 (변경 시 총액/배송비 자동 재계산)
-PATCH http://localhost:8080/orders/1/orderItems/1/price?price=3000
+PATCH http://localhost:8080/orders/1/orderItems/1/price
+Content-Type: application/json
+
+{
+  "price": 3000
+}
 
 ### 주문 항목 수량 변경
-PATCH http://localhost:8080/orders/1/orderItems/1/quantity?quantity=100
+PATCH http://localhost:8080/orders/1/orderItems/1/quantity
+Content-Type: application/json
+
+{
+  "quantity": 100
+}
 
 ###############################################
 # 참고: 다른 도메인 엔드포인트
@@ -78,6 +93,44 @@ Content-Type: application/json
 ### 상품 조회
 GET http://localhost:8080/products/1
 
+### 상품 가격 변경
+PATCH http://localhost:8080/products/1/price
+Content-Type: application/json
+
+{
+  "price": 39000
+}
+
+### 상품 재고 차감
+POST http://localhost:8080/products/1/decrease-stock
+Content-Type: application/json
+
+{
+  "quantity": 1
+}
+
+### 상품 재고 복원
+POST http://localhost:8080/products/1/restore-stock
+Content-Type: application/json
+
+{
+  "quantity": 1
+}
+
+### 결제 승인
+POST http://localhost:8080/payments
+Content-Type: application/json
+
+{
+  "amount": 179000
+}
+
+### 결제 조회
+GET http://localhost:8080/payments/1
+
+### 결제 취소
+POST http://localhost:8080/payments/1/cancel
+
 ### 장바구니 조회
 GET http://localhost:8080/users/1/cart
 
@@ -88,4 +141,12 @@ Content-Type: application/json
 {
   "productId": 1,
   "quantity": 2
+}
+
+### 장바구니 수량 변경
+PATCH http://localhost:8080/users/1/cart/items/1
+Content-Type: application/json
+
+{
+  "quantity": 3
 }

@@ -4,8 +4,10 @@ import com.growmighty.lectures.firstday.tangledmonolith.order.application.port.P
 import com.growmighty.lectures.firstday.tangledmonolith.order.application.port.dto.ProductSnapshot;
 import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.ApiResponseBody;
 import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.ProductApiData;
+import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.StockChangeBody;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -35,7 +37,9 @@ public class ProductHttpClient implements ProductPort {
     @Override
     public void decreaseStock(Long productId, int quantity) {
         orderRestClient.post()
-                .uri("/products/{productId}/decrease-stock?quantity={quantity}", productId, quantity)
+                .uri("/products/{productId}/decrease-stock", productId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new StockChangeBody(quantity))
                 .retrieve()
                 .toBodilessEntity();
     }
@@ -43,7 +47,9 @@ public class ProductHttpClient implements ProductPort {
     @Override
     public void restoreStock(Long productId, int quantity) {
         orderRestClient.post()
-                .uri("/products/{productId}/restore-stock?quantity={quantity}", productId, quantity)
+                .uri("/products/{productId}/restore-stock", productId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new StockChangeBody(quantity))
                 .retrieve()
                 .toBodilessEntity();
     }

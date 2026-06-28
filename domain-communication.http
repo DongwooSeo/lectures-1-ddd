@@ -46,10 +46,25 @@ GET http://localhost:8080/orders
 ###############################################
 
 ### 상품 재고 차감 API (주문 → 상품)
-POST http://localhost:8080/products/1/decrease-stock?quantity=1
+POST http://localhost:8080/products/1/decrease-stock
+Content-Type: application/json
+
+{
+  "quantity": 1
+}
 
 ### 상품 재고 복원 API (보상 트랜잭션 예시)
-POST http://localhost:8080/products/1/restore-stock?quantity=1
+POST http://localhost:8080/products/1/restore-stock
+Content-Type: application/json
+
+{
+  "quantity": 1
+}
 
 ### 결제 승인 API (주문 → 결제)
-POST http://localhost:8080/payments?amount=179000
+POST http://localhost:8080/payments
+Content-Type: application/json
+
+{
+  "amount": 179000
+}

@@ -3,6 +3,7 @@ package com.growmighty.lectures.firstday.tangledmonolith.cart.presentation;
 import com.growmighty.lectures.firstday.tangledmonolith.cart.application.CartService;
 import com.growmighty.lectures.firstday.tangledmonolith.cart.presentation.dto.AddCartItemRequest;
 import com.growmighty.lectures.firstday.tangledmonolith.cart.presentation.dto.CartResponse;
+import com.growmighty.lectures.firstday.tangledmonolith.cart.presentation.dto.ChangeCartItemQuantityRequest;
 import com.growmighty.lectures.firstday.tangledmonolith.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -24,8 +25,8 @@ public class CartController {
     }
 
     @PatchMapping("/items/{productId}")
-    public ApiResponse<CartResponse> changeQuantity(@PathVariable Long userId, @PathVariable Long productId, @RequestParam int quantity) {
-        return ApiResponse.ok(CartResponse.from(cartService.changeQuantity(userId, productId, quantity)));
+    public ApiResponse<CartResponse> changeQuantity(@PathVariable Long userId, @PathVariable Long productId, @RequestBody ChangeCartItemQuantityRequest request) {
+        return ApiResponse.ok(CartResponse.from(cartService.changeQuantity(userId, productId, request.quantity())));
     }
 
     @DeleteMapping("/items/{productId}")

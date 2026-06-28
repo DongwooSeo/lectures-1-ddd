@@ -3,9 +3,11 @@ package com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.cl
 import com.growmighty.lectures.firstday.tangledmonolith.order.application.port.PaymentPort;
 import com.growmighty.lectures.firstday.tangledmonolith.order.application.port.dto.PaymentResult;
 import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.ApiResponseBody;
+import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.PayBody;
 import com.growmighty.lectures.firstday.tangledmonolith.order.infrastructure.client.dto.PaymentApiData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -20,7 +22,9 @@ public class PaymentHttpClient implements PaymentPort {
     @Override
     public PaymentResult pay(BigDecimal amount) {
         ApiResponseBody<PaymentApiData> body = orderRestClient.post()
-                .uri("/payments?amount={amount}", amount)
+                .uri("/payments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new PayBody(amount))
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 });

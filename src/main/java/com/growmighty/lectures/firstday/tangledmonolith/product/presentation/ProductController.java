@@ -2,12 +2,12 @@ package com.growmighty.lectures.firstday.tangledmonolith.product.presentation;
 
 import com.growmighty.lectures.firstday.tangledmonolith.common.response.ApiResponse;
 import com.growmighty.lectures.firstday.tangledmonolith.product.application.ProductService;
+import com.growmighty.lectures.firstday.tangledmonolith.product.presentation.dto.ChangeProductPriceRequest;
+import com.growmighty.lectures.firstday.tangledmonolith.product.presentation.dto.ChangeStockRequest;
 import com.growmighty.lectures.firstday.tangledmonolith.product.presentation.dto.ProductResponse;
 import com.growmighty.lectures.firstday.tangledmonolith.product.presentation.dto.RegisterProductRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,19 +26,19 @@ public class ProductController {
     }
 
     @PatchMapping("/{productId}/price")
-    public ApiResponse<ProductResponse> changePrice(@PathVariable Long productId, @RequestParam BigDecimal price) {
-        return ApiResponse.ok(ProductResponse.from(productService.changePrice(productId, price)));
+    public ApiResponse<ProductResponse> changePrice(@PathVariable Long productId, @RequestBody ChangeProductPriceRequest request) {
+        return ApiResponse.ok(ProductResponse.from(productService.changePrice(productId, request.price())));
     }
 
     @PostMapping("/{productId}/decrease-stock")
-    public ApiResponse<Void> decreaseStock(@PathVariable Long productId, @RequestParam int quantity) {
-        productService.decreaseStock(productId, quantity);
+    public ApiResponse<Void> decreaseStock(@PathVariable Long productId, @RequestBody ChangeStockRequest request) {
+        productService.decreaseStock(productId, request.quantity());
         return ApiResponse.ok();
     }
 
     @PostMapping("/{productId}/restore-stock")
-    public ApiResponse<Void> restoreStock(@PathVariable Long productId, @RequestParam int quantity) {
-        productService.restoreStock(productId, quantity);
+    public ApiResponse<Void> restoreStock(@PathVariable Long productId, @RequestBody ChangeStockRequest request) {
+        productService.restoreStock(productId, request.quantity());
         return ApiResponse.ok();
     }
 }
