@@ -92,13 +92,37 @@ DB 데이터가 디스크로 빠져 힙에서 사라지므로, 힙 덤프에 **H
 - "끊어서(Chunk) 1,000건만 올리고 → 쓰고 → `clear()` 로 비우면, `StatefulPersistenceContext` 가 절대 안 커진다."
 - 그래서 (3) Spring Batch Chunk 지향 처리로 넘어간다.
 
-### (3) 스프링 배치 기초 - Chunk 지향 처리 (라이브 코딩)
-`settlement/batch/` 패키지를 새로 만들며 진행:
-- **ItemReader**: `JpaPagingItemReader` 또는 `JdbcPagingItemReader` 로 주문을 페이지 단위로 읽기 (메모리 안전).
-- **ItemProcessor**: 주문 → `Settlement` 변환 (1원 무결성 계산 재사용).
-- **ItemWriter**: `JpaItemWriter` / `JdbcBatchItemWriter` 로 정산 테이블에 적재.
-- chunk size 를 바꿔 가며 메모리/속도 트레이드오프 관찰.
-- 실행 엔드포인트를 `SettlementController` 에 추가 (`POST /settlements/batch`).
+### (3) 스프링 배치 기초 - Chunk 지향 처리  ✅ Step2 구현됨
+`settlement/batch/` 패키지로 구현했다. (`lectures/settlement/step2-done`)
+
+```
+Reader(주문 페이지로 읽기) → Processor(주문→정산 변환) → Writer(정산 적재)
+     └──────────── chunk(기본 1000)만큼 모아 한 트랜잭션 ────────────┘
+```
+
+| 구성 | 파일 | 설명 |
+|---|---|---|
+| **ItemReader** | `batch/SettlementJobConfig#settlementOrderReader` | `JpaPagingItemReader<Order>` — PAID 주문을 id 순 페이지로 읽음. pageSize=chunkSize → 페이지마다 영속성 컨텍스트를 비워 **메모리 안전** |
+| **ItemProcessor** | `batch/OrderToSettlementProcessor` | `Order → Settlement` 변환. 1원 무결성은 `Settlement.of` 에 위임. 대상 아님은 `null` 반환 → 필터링 |
+| **ItemWriter** | `batch/SettlementJobConfig#settlementWriter` | `JpaItemWriter<Settlement>` — chunk 단위 적재 (Bulk Insert 최적화는 오후) |
+| **Step/Job** | `batch/SettlementJobConfig` | `StepBuilder.chunk(chunkSize, tx)` + `JobBuilder` |
+| **실행기** | `application/SettlementBatchService` | `JobOperator.start(job, params)` (Batch6: JobLauncher deprecated). HeapMonitor 로 감싸 피크 힙 측정 |
+| **엔드포인트** | `POST /settlements/batch` | `SettleReport` 반환(read/written/elapsed/peakHeap) |
+
+#### 데모 동선 (naive 와 대비)
+```http
+DELETE http://localhost:8080/settlements
+POST   http://localhost:8080/settlements/batch
+```
+- 콘솔 `[mem:batch]` 막대가 **거의 평평**하게 유지된다 (chunk 크기만큼만 사용). naive 의 우상향과 정반대.
+- 100만 + `-Xmx1g` 에서: **naive 는 OOM, batch 는 완주.** 이게 Step1→Step2 의 결론.
+- chunk 크기 조절: 기동 시 `--settlement.batch.chunk-size=5000`
+  - 작게 = 트랜잭션 잦음/메모리 적음, 크게 = 빠르지만 메모리 많이 → 트레이드오프 관찰.
+
+> 주의: 같은 데이터에 batch 를 두 번 돌리면 `order_id` 유니크 위반으로 **Job FAILED**.
+> (멱등성/재시작은 (4) Step3 에서. 반복 데모는 사이에 `DELETE /settlements`.)
+
+- 실측(시드 5만, chunk 1000): read=50000, written=50000, peakHeap≈142MB, ~1.7s, status COMPLETED.
 
 ### (4) 멱등성과 재시작 (Restartability) (라이브 코딩)
 - 시나리오: 50% 지점에서 강제 예외 → Job 실패.

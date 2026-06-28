@@ -16,6 +16,7 @@ import com.growmighty.lectures.firstday.tangledmonolith.product.application.Prod
 import com.growmighty.lectures.firstday.tangledmonolith.product.application.dto.ProductInfo;
 import com.growmighty.lectures.firstday.tangledmonolith.product.domain.ProductStatus;
 import com.growmighty.lectures.firstday.tangledmonolith.user.application.UserService;
+import com.growmighty.lectures.firstday.tangledmonolith.user.application.dto.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,8 @@ class OrderServiceTest {
     @DisplayName("주문 생성: 재고 차감·결제 승인을 호출하고 결제 ID를 주문에 연결한다")
     void placeOrder_orchestratesStockAndPayment() {
         PlaceOrderCommand command = new PlaceOrderCommand(1L, List.of(new OrderLine(10L, 2)));
+        when(userService.getUser(1L))
+                .thenReturn(new UserInfo(1L, "buyer@growmighty.co.kr", "구매자", "010-1111-1111"));
         when(productService.getProductInfo(10L))
                 .thenReturn(new ProductInfo(10L, 1L, "원목 식탁", BigDecimal.valueOf(10_000), 5, ProductStatus.ON_SALE));
         when(paymentService.pay(any()))

@@ -27,14 +27,24 @@ POST http://localhost:8080/settlements/naive
 DELETE http://localhost:8080/settlements
 
 ###############################################
-# 아래는 오전/오후 실습에서 Spring Batch Job 을 추가하면 사용
+# [Step2] Spring Batch Chunk 지향 처리
 ###############################################
 
-### [실습] 정산 배치 Job 실행 (Chunk 지향 처리 - 메모리 일정하게 유지)
-# POST http://localhost:8080/settlements/batch
+### [Step2] 정산 배치 Job 실행 (Reader 페이지 → Processor 변환 → Writer 적재)
+# naive 와 달리 대용량(100만)이어도 chunk 크기만큼만 메모리를 쓰며 완주한다.
+# 응답의 peakHeapMb 를 naive 결과와 비교. (먼저 DELETE 로 비운 깨끗한 상태에서 실행)
+POST http://localhost:8080/settlements/batch
 
-### [실습] 50% 지점 강제 실패 후 재시작 (Restartability)
-# POST http://localhost:8080/settlements/batch?failAt=500000
+### chunk 크기 바꿔 관찰: 기동 시 --settlement.batch.chunk-size=5000 처럼 조절
+# (작게=트랜잭션 자주/메모리 적게, 크게=빠르지만 메모리 많이)
+
+###############################################
+# 아래는 다음(Step3) 실습 — 멱등성/재시작
+###############################################
+
+### [Step3-예고] 같은 데이터에 batch 재실행 → order_id 유니크 위반으로 FAILED
+# (멱등성/재시작을 구현하면 이미 정산된 건 건너뛰고 안전하게 재개)
+# POST http://localhost:8080/settlements/batch
 
 ### H2 콘솔 (시드/정산 결과를 직접 SQL 로 확인) — JDBC URL: jdbc:h2:mem:tangled
 GET http://localhost:8080/h2-console
