@@ -3,6 +3,7 @@ package com.growmighty.lectures.firstday.tangledmonolith.settlement.application;
 import com.growmighty.lectures.firstday.tangledmonolith.order.domain.OrderRepository;
 import com.growmighty.lectures.firstday.tangledmonolith.settlement.application.dto.SettleReport;
 import com.growmighty.lectures.firstday.tangledmonolith.settlement.batch.SettlementFaultBox;
+import com.growmighty.lectures.firstday.tangledmonolith.settlement.batch.SettlementParallelJobFactory;
 import com.growmighty.lectures.firstday.tangledmonolith.settlement.domain.SettlementRepository;
 import com.growmighty.lectures.firstday.tangledmonolith.settlement.support.HeapMonitor;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.step.StepExecution;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -48,6 +50,15 @@ public class SettlementBatchService {
     private final SettlementFaultBox faultBox;
     private final OrderRepository orderRepository;
     private final SettlementRepository settlementRepository;
+    private final SettlementParallelJobFactory parallelJobFactory;
+
+    /** [Step4] 멀티스레드 Step 의 기본 스레드 수 (엔드포인트 ?threads= 로 덮어쓰기). */
+    @Value("${settlement.batch.thread-count:8}")
+    private int defaultThreadCount;
+
+    /** [Step4] 파티셔닝의 기본 gridSize (엔드포인트 ?gridSize= 로 덮어쓰기). */
+    @Value("${settlement.batch.grid-size:8}")
+    private int defaultGridSize;
 
     /**
      * [Step2] 정상 정산. 매번 새 JobParameters 로 실행한다.
@@ -57,7 +68,43 @@ public class SettlementBatchService {
         faultBox.disarm(); // 혹시 직전에 장전돼 있었다면 해제 → 깨끗한 정상 실행
         JobParameters params = newRunParams();
         log.warn("[BATCH] 정산 Job 실행 (새 인스턴스)");
-        return launch(params, "batch");
+        return launch(settlementJob, params, "batch");
+    }
+
+    /**
+     * [Step4-1 · 4-2] Multi-threaded Step 실행 — "스레드만 늘리는" 순진한 가속(=함정).
+     *
+     * <ul>
+     *   <li><b>4-1</b>: {@code threads} 가 HikariCP {@code maximumPoolSize} 보다 크면 커넥션이
+     *       고갈돼 {@code Connection is not available, request timed out} 으로 실패한다.
+     *       풀을 스레드 수에 맞게 키우면(튜닝) 에러는 사라진다.</li>
+     *   <li><b>4-2</b>: 에러를 없애도, 공유 Reader 경쟁 때문에 정산 건수가 전체와 안 맞는다.
+     *       리포트의 {@code settledCount + skippedCount} 가 전체 주문 수에 못 미치는(=누락) 걸로 드러난다.</li>
+     * </ul>
+     *
+     * @param threads    동시 실행 스레드 수. null 이면 {@code settlement.batch.thread-count} 기본값.
+     * @param safeReader true 면 표준(thread-safe) Reader → 데이터는 안 꼬이고 커넥션 풀 고갈만 보인다([Step4-1] 풀 튜닝용).
+     *                   false 면 비동기화 공유 Reader → 데이터 꼬임을 재현한다([Step4-2]).
+     */
+    public SettleReport runMultiThreaded(Integer threads, boolean safeReader) {
+        faultBox.disarm();
+        int t = (threads != null) ? threads : defaultThreadCount;
+        log.warn("[BATCH] Multi-threaded Step 실행 — threads={}, safeReader={} ({})",
+                t, safeReader, safeReader ? "Step4-1 풀 데모" : "Step4-2 공유 Reader 함정");
+        return launch(parallelJobFactory.multiThreadedJob(t, safeReader), newRunParams(), "batch-mt");
+    }
+
+    /**
+     * [Step4-3] Partitioning 실행 — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
+     * 멀티스레드와 달리 워커가 겹치지 않는 범위를 받으므로 중복/누락 없이 빨라진다.
+     *
+     * @param gridSize 파티션 수. null 이면 {@code settlement.batch.grid-size} 기본값.
+     */
+    public SettleReport runPartitioned(Integer gridSize) {
+        faultBox.disarm();
+        int g = (gridSize != null) ? gridSize : defaultGridSize;
+        log.warn("[BATCH] Partitioning 실행 — gridSize={} (구조적 해법)", g);
+        return launch(parallelJobFactory.partitionedJob(g), newRunParams(), "batch-part");
     }
 
     /**
@@ -75,7 +122,7 @@ public class SettlementBatchService {
 
         JobParameters params = newRunParams();
         log.warn("[BATCH] 장애 주입 실행 — 남은 {}건 중 {}건 처리 후 실패 예정", remaining, failAfter);
-        return launch(params, "batch-fail");
+        return launch(settlementJob, params, "batch-fail");
     }
 
     /**
@@ -101,17 +148,22 @@ public class SettlementBatchService {
                 .addLong("runId", runId)
                 .toJobParameters();
         log.warn("[BATCH] 재시작 가능 실행 — runId={}, 장애={}", runId, faultBox.armed());
-        return launch(params, "batch-restart");
+        return launch(settlementJob, params, "batch-restart");
     }
 
     /** 공통 실행 + 리포트 작성. start(job, params) 는 실패한 인스턴스면 자동으로 재시작한다. */
-    private SettleReport launch(JobParameters params, String label) {
+    private SettleReport launch(Job job, JobParameters params, String label) {
         try (HeapMonitor monitor = HeapMonitor.start(label, 500)) {
             long startedAt = System.currentTimeMillis();
-            JobExecution execution = jobOperator.start(settlementJob, params);
+            JobExecution execution = jobOperator.start(job, params);
 
             long read = 0, written = 0, skipped = 0;
             for (StepExecution step : execution.getStepExecutions()) {
+                // [Step4-3] 파티셔닝의 워커 StepExecution(name 에 ":partitionN" 이 붙음)은
+                // 마스터 Step 에 이미 합산되어 있다. 같이 더하면 두 배가 되므로 건너뛴다.
+                if (step.getStepName().contains(":")) {
+                    continue;
+                }
                 read += step.getReadCount();
                 written += step.getWriteCount();
                 skipped += step.getFilterCount();

@@ -81,6 +81,57 @@ POST http://localhost:8080/settlements/batch/restart?runId=1
 ### (참고) 완료된 runId 를 또 실행하면? → "이미 완료" 안내 (같은 파라미터는 1회만 완료 가능)
 POST http://localhost:8080/settlements/batch/restart?runId=1
 
+###############################################
+# [Step4] 병렬 처리의 한계와 함정 (멀티스레드 → 파티셔닝)
+#
+# 데모용 기동(5000건, chunk 100):
+#   ./gradlew bootRun --args='--settlement.seed.enabled=true --settlement.seed.count=5000 \
+#     --settlement.batch.chunk-size=100 --spring.jpa.show-sql=false --logging.level.org.hibernate.orm.jdbc.bind=off'
+#
+# ⚠️ Batch 6 메모: 표준 paging Reader 의 read() 는 내부 Lock 으로 thread-safe 하고,
+#   신형 chunk(size).taskExecutor 는 "읽기 단일·가공 병렬"(=Async)이다. 그래서 전통적 멀티스레드 함정은
+#   이 코드의 '비동기화 공유 Reader' + '레거시 멀티스레드 빌더' 로만 재현된다. (SETTLEMENT_SESSION.md 참고)
+###############################################
+
+# ───────── [Step4-1] 스레드만 늘리면 터진다 — 커넥션 풀 (safe=true) ─────────
+
+### (사전) 풀을 작게 걸고 기동해야 터진다:
+#   ./gradlew bootRun --args='... --spring.datasource.hikari.maximum-pool-size=2'
+
+### [Step4-1] safe=true → 표준 Reader 라 데이터는 안 꼬이고 '커넥션 고갈'만 드러난다
+# 풀(2) < 동시 스레드 → status=FAILED, 로그: "Connection is not available, request timed out after 3000ms"
+POST http://localhost:8080/settlements/batch/multi-threaded?threads=10&safe=true
+
+### [Step4-1 처방] 풀을 스레드 수에 맞게 키워 재기동(maximum-pool-size=20) 후 같은 호출 → COMPLETED(5000)
+# 동시에 "표준 Reader 는 멀티스레드여도 데이터가 안 꼬인다(Batch 6 가 read() 를 락으로 보호)" 도 증명된다
+POST http://localhost:8080/settlements/batch/multi-threaded?threads=10&safe=true
+
+# ───────── [Step4-2] 진짜 함정 — 멀티스레드가 데이터를 꼬는다 (풀은 충분히 키운 상태) ─────────
+
+### (1) 깨끗한 출발
+DELETE http://localhost:8080/settlements
+
+### (2) [Step4-2] 비동기화 공유 Reader(safe 생략) → 같은 주문이 두 스레드에 들어가 UNIQUE 위반 → FAILED
+# 비결정적: 매번 다른 지점에서 깨지고 settledCount 도 들쭉날쭉. 여러 번 호출해 보라.
+POST http://localhost:8080/settlements/batch/multi-threaded?threads=8
+
+### (3) 상태 확인 — settlementCount 가 전체(5000)와 안 맞는다(누락/깨짐)
+GET http://localhost:8080/settlements/status
+
+# ───────── [Step4-3] 정답 — Partitioning (겹치지 않는 범위 + 전용 Reader) ─────────
+
+### (1) 깨끗한 출발
+DELETE http://localhost:8080/settlements
+
+### (2) [Step4-3] id 범위를 gridSize 개로 나눠 워커마다 전용 Reader 로 병렬 처리 → 정확히 5000, 중복 0
+# gridSize 를 4 → 8 → 16 으로 올리며 elapsedMs 변화를 본다(어느 지점부터 안 빨라지는지 = 진짜 병목).
+# 단, gridSize 가 커넥션 풀보다 크면 4-1 처럼 풀이 터진다.
+POST http://localhost:8080/settlements/batch/partitioned?gridSize=8
+
+### (3) 검증 — 정확히 전체 건수, 중복 0
+GET http://localhost:8080/settlements/status
+# H2 콘솔: SELECT COUNT(*), COUNT(DISTINCT order_id) FROM settlements;  (둘 다 5000, 일치해야 함)
+
 ### H2 콘솔 (시드/정산 결과를 직접 SQL 로 확인) — JDBC URL: jdbc:h2:mem:tangled
 # 중복 검증: SELECT COUNT(*), COUNT(DISTINCT order_id) FROM settlements;  (두 값이 같아야 함)
 GET http://localhost:8080/h2-console

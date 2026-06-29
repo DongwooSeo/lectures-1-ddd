@@ -20,6 +20,8 @@ import java.util.Map;
  *   <li>POST /settlements/batch          : [Step2] Spring Batch Chunk 지향 처리 → 메모리 일정하게 유지</li>
  *   <li>POST /settlements/batch?failAt=0.5      : [Step3-1] 50% 지점에서 강제 실패(장애 시나리오)</li>
  *   <li>POST /settlements/batch/restart?runId=1 : [Step3-2] 같은 runId 로 네이티브 재시작(이어서 처리)</li>
+ *   <li>POST /settlements/batch/multi-threaded?threads=10 : [Step4-1·4-2] 멀티스레드 함정(풀 고갈/데이터 꼬임)</li>
+ *   <li>POST /settlements/batch/partitioned?gridSize=8    : [Step4-3] 파티셔닝(정답) — 범위 분할 병렬</li>
  *   <li>GET  /settlements/status         : 주문/정산 건수 + 현재 힙 상태 확인</li>
  *   <li>DELETE /settlements              : 정산 결과 비우기 (데모 반복용)</li>
  * </ul>
@@ -79,6 +81,38 @@ public class SettlementController {
     public ApiResponse<SettleReport> restartBatch(@RequestParam(defaultValue = "1") long runId,
                                                   @RequestParam(required = false) Double failAt) {
         return ApiResponse.ok(settlementBatchService.runRestartable(runId, failAt));
+    }
+
+    /**
+     * [Step4-1 · 4-2] Multi-threaded Step — "스레드만 늘리는" 순진한 가속의 함정.
+     *
+     * <ul>
+     *   <li><b>4-1</b>: {@code threads} 를 HikariCP {@code maximumPoolSize} 보다 크게(예: 풀 2 / threads 10)
+     *       주고 돌리면 커넥션 고갈로 타임아웃 실패. 풀을 키우면 살아난다.</li>
+     *   <li><b>4-2</b>: 풀을 키워 에러를 없애도 공유 Reader 경쟁으로 정산 건수가 안 맞는다(누락).
+     *       응답의 {@code settledCount + skippedCount} 와 {@code GET /status} 의 settlementCount 가
+     *       전체 주문 수보다 작은지 확인.</li>
+     * </ul>
+     *
+     * @param threads 동시 스레드 수. 생략 시 {@code settlement.batch.thread-count} 기본값.
+     * @param safe    true 면 표준 thread-safe Reader 로 <b>데이터는 안 꼬이고 풀 고갈만</b> 보여준다([Step4-1] 풀 튜닝).
+     *                생략/false 면 비동기화 공유 Reader 로 <b>데이터 꼬임</b>을 재현한다([Step4-2]).
+     */
+    @PostMapping("/batch/multi-threaded")
+    public ApiResponse<SettleReport> settleMultiThreaded(@RequestParam(required = false) Integer threads,
+                                                         @RequestParam(defaultValue = "false") boolean safe) {
+        return ApiResponse.ok(settlementBatchService.runMultiThreaded(threads, safe));
+    }
+
+    /**
+     * [Step4-3] Partitioning — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
+     * 멀티스레드와 달리 워커 범위가 겹치지 않아 중복/누락 없이 빨라진다(구조적 해법).
+     *
+     * @param gridSize 파티션 수. 생략 시 {@code settlement.batch.grid-size} 기본값.
+     */
+    @PostMapping("/batch/partitioned")
+    public ApiResponse<SettleReport> settlePartitioned(@RequestParam(required = false) Integer gridSize) {
+        return ApiResponse.ok(settlementBatchService.runPartitioned(gridSize));
     }
 
     @GetMapping("/status")
