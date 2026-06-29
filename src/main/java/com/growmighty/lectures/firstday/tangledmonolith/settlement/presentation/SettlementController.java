@@ -20,8 +20,9 @@ import java.util.Map;
  *   <li>POST /settlements/batch          : [Step2] Spring Batch Chunk 지향 처리 → 메모리 일정하게 유지</li>
  *   <li>POST /settlements/batch?failAt=0.5      : [Step3-1] 50% 지점에서 강제 실패(장애 시나리오)</li>
  *   <li>POST /settlements/batch/restart?runId=1 : [Step3-2] 같은 runId 로 네이티브 재시작(이어서 처리)</li>
- *   <li>POST /settlements/batch/multi-threaded?threads=10 : [Step4-1·4-2] 멀티스레드 함정(풀 고갈/데이터 꼬임)</li>
- *   <li>POST /settlements/batch/partitioned?gridSize=8    : [Step4-3] 파티셔닝(정답) — 범위 분할 병렬</li>
+ *   <li>POST /settlements/batch/multi-threaded?threads=N  : [Step4-1·4-2] 풀 고갈 / 읽기 깔때기(처리량 천장)</li>
+ *   <li>POST /settlements/batch/multi-threaded/restart?runId=1&failAt=0.5 : [Step4-3] saveState=false → 재시작이 처음부터</li>
+ *   <li>POST /settlements/batch/partitioned?gridSize=N    : [Step4-4] 파티셔닝(정답) — 속도+재시작 둘 다</li>
  *   <li>GET  /settlements/status         : 주문/정산 건수 + 현재 힙 상태 확인</li>
  *   <li>DELETE /settlements              : 정산 결과 비우기 (데모 반복용)</li>
  * </ul>
@@ -84,29 +85,43 @@ public class SettlementController {
     }
 
     /**
-     * [Step4-1 · 4-2] Multi-threaded Step — "스레드만 늘리는" 순진한 가속의 함정.
+     * [Step4-1 · 4-2] Multi-threaded Step — "스레드만 늘리는" 순진한 가속.
      *
+     * <p>표준(thread-safe) Reader 라 데이터는 안 꼬인다. 대신:
      * <ul>
      *   <li><b>4-1</b>: {@code threads} 를 HikariCP {@code maximumPoolSize} 보다 크게(예: 풀 2 / threads 10)
-     *       주고 돌리면 커넥션 고갈로 타임아웃 실패. 풀을 키우면 살아난다.</li>
-     *   <li><b>4-2</b>: 풀을 키워 에러를 없애도 공유 Reader 경쟁으로 정산 건수가 안 맞는다(누락).
-     *       응답의 {@code settledCount + skippedCount} 와 {@code GET /status} 의 settlementCount 가
-     *       전체 주문 수보다 작은지 확인.</li>
+     *       주고 작은 풀로 기동하면 커넥션 고갈로 타임아웃 실패. 풀을 키우면 살아난다.</li>
+     *   <li><b>4-2</b>: 풀을 충분히 키운 뒤 {@code threads} 를 1→2→4→8 로 올려가며 응답의 {@code elapsedMs}
+     *       를 비교하라. 읽기가 Reader 하나(깔때기)로 직렬화돼 시간이 거의 안 준다(처리량 천장).</li>
      * </ul>
      *
      * @param threads 동시 스레드 수. 생략 시 {@code settlement.batch.thread-count} 기본값.
-     * @param safe    true 면 표준 thread-safe Reader 로 <b>데이터는 안 꼬이고 풀 고갈만</b> 보여준다([Step4-1] 풀 튜닝).
-     *                생략/false 면 비동기화 공유 Reader 로 <b>데이터 꼬임</b>을 재현한다([Step4-2]).
      */
     @PostMapping("/batch/multi-threaded")
-    public ApiResponse<SettleReport> settleMultiThreaded(@RequestParam(required = false) Integer threads,
-                                                         @RequestParam(defaultValue = "false") boolean safe) {
-        return ApiResponse.ok(settlementBatchService.runMultiThreaded(threads, safe));
+    public ApiResponse<SettleReport> settleMultiThreaded(@RequestParam(required = false) Integer threads) {
+        return ApiResponse.ok(settlementBatchService.runMultiThreaded(threads));
     }
 
     /**
-     * [Step4-3] Partitioning — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
-     * 멀티스레드와 달리 워커 범위가 겹치지 않아 중복/누락 없이 빨라진다(구조적 해법).
+     * [Step4-3] Multi-threaded Step 의 <b>재시작 상실</b> 데모. 같은 runId 로 다시 호출한다.
+     * {@code saveState=false} 라 재시작이 "이어서"가 아니라 <b>처음부터 다시 읽기</b>가 된다.
+     *
+     * <ul>
+     *   <li>1차: {@code POST /settlements/batch/multi-threaded/restart?runId=1&failAt=0.5} → 50%에서 FAILED</li>
+     *   <li>2차: {@code POST /settlements/batch/multi-threaded/restart?runId=1} → COMPLETED 이지만
+     *       {@code readCount} 가 전체에 가깝다(=앞부분 재독). Step3 단일스레드 재시작과 비교.</li>
+     * </ul>
+     */
+    @PostMapping("/batch/multi-threaded/restart")
+    public ApiResponse<SettleReport> restartMultiThreaded(@RequestParam(defaultValue = "1") long runId,
+                                                          @RequestParam(required = false) Double failAt) {
+        return ApiResponse.ok(settlementBatchService.runMultiThreadedRestartable(runId, failAt));
+    }
+
+    /**
+     * [Step4-4] Partitioning — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
+     * 입구가 여러 개라 4-2 의 깔때기가 사라지고(진짜 병렬), 워커마다 독립 체크포인트(saveState=true)라
+     * 4-3 에서 잃었던 재시작도 구조적으로 보존된다. 멱등 재실행도 안전(= {@code settledCount=0, skipped=전체}).
      *
      * @param gridSize 파티션 수. 생략 시 {@code settlement.batch.grid-size} 기본값.
      */

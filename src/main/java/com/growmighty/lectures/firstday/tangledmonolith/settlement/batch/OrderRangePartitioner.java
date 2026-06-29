@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * [Step4-3] 정산 대상(PAID 주문)의 PK(id) 범위를 {@code gridSize} 개로 잘게 나누는 마스터.
+ * [Step4-4] 정산 대상(PAID 주문)의 PK(id) 범위를 {@code gridSize} 개로 잘게 나누는 마스터.
  *
  * <p>파티셔닝의 핵심은 "데이터 구역을 미리 쪼개서, 워커마다 <b>겹치지 않는</b> 전용 범위를 통째로
  * 넘기는 것" 이다. 각 파티션의 범위(minId~maxId)를 그 파티션 전용 {@link ExecutionContext}
@@ -23,9 +23,9 @@ import java.util.Map;
  *                       └─ partition3 : id 750,001 ~ 1,000,000
  * </pre>
  *
- * <p>워커마다 범위가 겹치지 않으므로 {@link UnsafeSharedOrderReader} 가 보여준
- * "공유 Reader 경쟁 → 중복/누락" 문제가 <b>구조적으로</b> 사라진다. 같은 주문이 두 워커에
- * 동시에 들어갈 수 없으니 이중정산도 날 수 없다.
+ * <p>워커마다 <b>전용 입구(전용 Reader)</b>가 생기므로, Multi-threaded Step 의 "Reader 하나를 공유"
+ * (4-2 의 깔때기 병목)가 사라진다. 또 범위가 겹치지 않아 같은 주문이 두 워커에 들어갈 수 없으니
+ * 이중정산도 구조적으로 불가능하다.
  *
  * <p>시드 데이터는 id 가 1..N 으로 촘촘해 단순 균등 분할로 충분하다. 실데이터처럼 id 가
  * 듬성듬성하면 파티션별 건수가 들쭉날쭉할 수 있는데(데이터 스큐), 그땐 건수 기반 분할 등을 쓴다.

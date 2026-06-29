@@ -72,38 +72,62 @@ public class SettlementBatchService {
     }
 
     /**
-     * [Step4-1 · 4-2] Multi-threaded Step 실행 — "스레드만 늘리는" 순진한 가속(=함정).
+     * [Step4-1 · 4-2] Multi-threaded Step 실행 — "스레드만 늘리는" 순진한 가속.
      *
+     * <p>표준(thread-safe) Reader 라 데이터는 안 꼬인다. 대신:
      * <ul>
      *   <li><b>4-1</b>: {@code threads} 가 HikariCP {@code maximumPoolSize} 보다 크면 커넥션이
-     *       고갈돼 {@code Connection is not available, request timed out} 으로 실패한다.
-     *       풀을 스레드 수에 맞게 키우면(튜닝) 에러는 사라진다.</li>
-     *   <li><b>4-2</b>: 에러를 없애도, 공유 Reader 경쟁 때문에 정산 건수가 전체와 안 맞는다.
-     *       리포트의 {@code settledCount + skippedCount} 가 전체 주문 수에 못 미치는(=누락) 걸로 드러난다.</li>
+     *       고갈돼 {@code Connection is not available, request timed out} 으로 실패한다. 풀을 키우면 산다.</li>
+     *   <li><b>4-2</b>: 풀을 키워 잘 돌아가도, 읽기가 <b>Reader 하나(깔때기)</b>로 직렬화되므로
+     *       {@code threads} 를 1→2→4→8 로 늘려도 {@code elapsedMs} 가 거의 안 줄어든다(처리량 천장).</li>
      * </ul>
      *
-     * @param threads    동시 실행 스레드 수. null 이면 {@code settlement.batch.thread-count} 기본값.
-     * @param safeReader true 면 표준(thread-safe) Reader → 데이터는 안 꼬이고 커넥션 풀 고갈만 보인다([Step4-1] 풀 튜닝용).
-     *                   false 면 비동기화 공유 Reader → 데이터 꼬임을 재현한다([Step4-2]).
+     * @param threads 동시 실행 스레드 수. null 이면 {@code settlement.batch.thread-count} 기본값.
      */
-    public SettleReport runMultiThreaded(Integer threads, boolean safeReader) {
+    public SettleReport runMultiThreaded(Integer threads) {
         faultBox.disarm();
         int t = (threads != null) ? threads : defaultThreadCount;
-        log.warn("[BATCH] Multi-threaded Step 실행 — threads={}, safeReader={} ({})",
-                t, safeReader, safeReader ? "Step4-1 풀 데모" : "Step4-2 공유 Reader 함정");
-        return launch(parallelJobFactory.multiThreadedJob(t, safeReader), newRunParams(), "batch-mt");
+        log.warn("[BATCH] Multi-threaded Step 실행 — threads={} (읽기 깔때기/처리량 천장 측정)", t);
+        return launch(parallelJobFactory.multiThreadedJob(t), newRunParams(), "batch-mt");
     }
 
     /**
-     * [Step4-3] Partitioning 실행 — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
-     * 멀티스레드와 달리 워커가 겹치지 않는 범위를 받으므로 중복/누락 없이 빨라진다.
+     * [Step4-4] Multi-threaded Step 의 <b>재시작 상실</b> 데모. 같은 {@code runId} 로 다시 호출한다.
+     *
+     * <p>멀티스레드 Reader 는 {@code saveState(false)} 라 "어디까지 읽었는지" 체크포인트가 아예 없다.
+     * 그래서 50%에서 실패시킨 뒤 같은 runId 로 재실행하면 <b>처음부터 다시 읽는다</b> — 재실행 리포트의
+     * {@code readCount} 가 전체에 가깝고 {@code skippedCount} 가 이미 처리한 만큼(=앞부분 재독의 증거)이다.
+     * 우리 멱등성(existsByOrderId + UNIQUE)이 이중정산은 막아 데이터는 안 깨지지만, 1부에서 누렸던
+     * "이어서 재개" 의 이점은 사라진다. (멱등성이 없었다면 재시작이 곧 이중정산 사고였을 것.)
+     *
+     * @param runId     재시작 키(같은 값=같은 인스턴스 재시작).
+     * @param failRatio null 이면 정상/재개, 값이 있으면 그 비율에서 실패.
+     */
+    public SettleReport runMultiThreadedRestartable(long runId, Double failRatio) {
+        if (failRatio == null) {
+            faultBox.disarm();
+        } else {
+            long remaining = orderRepository.count() - settlementRepository.count();
+            faultBox.arm(Math.max(1, Math.round(remaining * failRatio)));
+        }
+        JobParameters params = new JobParametersBuilder()
+                .addLong("runId", runId)
+                .toJobParameters();
+        log.warn("[BATCH] Multi-threaded 재시작 시도 — runId={}, 장애={} (saveState=false → 처음부터 다시 읽음)",
+                runId, faultBox.armed());
+        return launch(parallelJobFactory.multiThreadedJob(defaultThreadCount), params, "batch-mt-restart");
+    }
+
+    /**
+     * [Step4-4] Partitioning 실행 — id 범위를 {@code gridSize} 개로 나눠 워커마다 전용 Reader 로 병렬 처리.
+     * 입구가 여러 개라 4-2 의 깔때기가 사라지고(진짜 병렬), 워커마다 독립 체크포인트라 4-3 의 재시작도 보존된다.
      *
      * @param gridSize 파티션 수. null 이면 {@code settlement.batch.grid-size} 기본값.
      */
     public SettleReport runPartitioned(Integer gridSize) {
         faultBox.disarm();
         int g = (gridSize != null) ? gridSize : defaultGridSize;
-        log.warn("[BATCH] Partitioning 실행 — gridSize={} (구조적 해법)", g);
+        log.warn("[BATCH] Partitioning 실행 — gridSize={} (구조적 해법: 속도+재시작 둘 다)", g);
         return launch(parallelJobFactory.partitionedJob(g), newRunParams(), "batch-part");
     }
 
@@ -159,7 +183,7 @@ public class SettlementBatchService {
 
             long read = 0, written = 0, skipped = 0;
             for (StepExecution step : execution.getStepExecutions()) {
-                // [Step4-3] 파티셔닝의 워커 StepExecution(name 에 ":partitionN" 이 붙음)은
+                // [Step4-4] 파티셔닝의 워커 StepExecution(name 에 ":partitionN" 이 붙음)은
                 // 마스터 Step 에 이미 합산되어 있다. 같이 더하면 두 배가 되므로 건너뛴다.
                 if (step.getStepName().contains(":")) {
                     continue;

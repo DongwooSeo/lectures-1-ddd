@@ -20,16 +20,16 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.util.Map;
 
 /**
- * [Step4-3] 파티셔닝의 <b>워커(Worker)</b> 쪽 구성.
+ * [Step4-4] 파티셔닝의 <b>워커(Worker)</b> 쪽 구성.
  *
  * <p>마스터({@link OrderRangePartitioner})가 나눠 준 범위(minId~maxId)를 받아,
  * <b>그 범위만</b> 읽어 정산하는 Step 이다. 마스터 Step 과 Job 의 조립은 스레드 수/gridSize 를
  * 런타임에 받기 위해 {@link SettlementParallelJobFactory} 에서 동적으로 만든다.
  *
  * <p>{@link #settlementWorkerReader} 가 {@code @StepScope} 인 게 파티셔닝의 핵심이다.
- * 파티션(=워커 Step 실행)마다 Reader 인스턴스가 <b>따로</b> 생기고, 각자 자기 범위만 읽는다.
- * Multi-threaded Step 처럼 하나를 공유하지 않으니 {@link UnsafeSharedOrderReader} 의
- * 경쟁(중복/누락) 문제가 원천적으로 없다.
+ * 파티션(=워커 Step 실행)마다 Reader 인스턴스가 <b>따로(전용 입구)</b> 생기고, 각자 자기 범위만 읽는다.
+ * Multi-threaded Step 처럼 Reader 하나를 공유(깔때기)하지 않으니, 4-2 의 읽기 병목이 사라지고
+ * 워커마다 {@code saveState=true} 독립 체크포인트라 4-3 에서 잃었던 재시작도 보존된다.
  */
 @Configuration
 public class SettlementParallelJobConfig {
